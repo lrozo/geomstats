@@ -7,6 +7,7 @@ to visualize these datasets.
 import csv
 import json
 import os
+import numpy as np
 
 import pandas as pd
 
@@ -89,6 +90,32 @@ def load_random_graph():
         Graph containing nodes, edges, and labels from the random dataset.
     """
     return Graph(GRAPH_RANDOM_PATH, GRAPH_RANDOM_LABELS_PATH)
+
+def load_robot_planning_graph(n_rows, n_cols, connection_type = 1):
+    """
+
+    Returns
+    -------
+    graph:
+    """
+    GRAPH_ROBOT_PLANNING_PATH = os.path.join(DATA_PATH, 'graph_planning', 'robot_planning.txt')
+    GRAPH_ROBOT_PLAN_LABELS_PATH = os.path.join(DATA_PATH, 'graph_planning', 'robot_planning_labels.txt')
+
+    # Generate adjacency matrix
+    # nodes = np.array(np.arange(0, n_rows*n_cols)).reshape(n_rows, n_cols)+1
+    # Make the first diagonal vector (for horizontal connections)
+    diagonal_vec1 = np.tile(np.vstack((np.ones((n_cols-1, 1)), np.zeros((1, 1)))), (n_rows, 1))[:-1]
+
+    if connection_type == 1:  # 4-connected neighbors
+        diagonal_vec2 = np.ones((n_cols*(n_rows-1), 1))  # Make the second diagonal vector (for vertical connections)
+        auxiliar_adj = np.diag(diagonal_vec1[:, 0], 1) + np.diag(diagonal_vec2[:, 0], n_cols)
+        adjacency = auxiliar_adj+auxiliar_adj.T
+    else:  # 8-connected neighbors
+        # TODO: Finish
+        diagonal_vec2 = np.ones((n_cols*(n_rows-1), 1))  # Make the second diagonal vector (for vertical connections)
+    np.savetxt(GRAPH_ROBOT_PLANNING_PATH, adjacency.astype(int), fmt='%i')
+
+    return Graph(GRAPH_ROBOT_PLANNING_PATH, GRAPH_ROBOT_PLAN_LABELS_PATH)
 
 
 def load_karate_graph():
