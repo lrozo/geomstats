@@ -115,7 +115,8 @@ def load_robot_planning_graph(n_rows, n_cols, connection_type = 1):
         diagonal_vec2 = np.ones((n_cols*(n_rows-1), 1))  # Make the second diagonal vector (for vertical connections)
     np.savetxt(GRAPH_ROBOT_PLANNING_PATH, adjacency.astype(int), fmt='%i')
 
-    return Graph(GRAPH_ROBOT_PLANNING_PATH, GRAPH_ROBOT_PLAN_LABELS_PATH)
+    # TODO: Generate labels for nodes for plotting purposes
+    return Graph(GRAPH_ROBOT_PLANNING_PATH, None)
 
 
 def load_karate_graph():
