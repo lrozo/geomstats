@@ -91,7 +91,7 @@ def load_random_graph():
     """
     return Graph(GRAPH_RANDOM_PATH, GRAPH_RANDOM_LABELS_PATH)
 
-def load_robot_planning_graph(n_rows, n_cols, connection_type = 1):
+def load_robot_planning_graph(n_rows, n_cols, connection_type = 2):
     """
 
     Returns
@@ -102,6 +102,7 @@ def load_robot_planning_graph(n_rows, n_cols, connection_type = 1):
     GRAPH_ROBOT_PLAN_LABELS_PATH = os.path.join(DATA_PATH, 'graph_planning', 'robot_planning_labels.txt')
 
     # Generate adjacency matrix
+    nodes_labels = np.arange(1, n_rows*n_cols+1)
     # nodes = np.array(np.arange(0, n_rows*n_cols)).reshape(n_rows, n_cols)+1
     # Make the first diagonal vector (for horizontal connections)
     diagonal_vec1 = np.tile(np.vstack((np.ones((n_cols-1, 1)), np.zeros((1, 1)))), (n_rows, 1))[:-1]
@@ -109,14 +110,20 @@ def load_robot_planning_graph(n_rows, n_cols, connection_type = 1):
     if connection_type == 1:  # 4-connected neighbors
         diagonal_vec2 = np.ones((n_cols*(n_rows-1), 1))  # Make the second diagonal vector (for vertical connections)
         auxiliar_adj = np.diag(diagonal_vec1[:, 0], 1) + np.diag(diagonal_vec2[:, 0], n_cols)
-        adjacency = auxiliar_adj+auxiliar_adj.T
-    else:  # 8-connected neighbors
-        # TODO: Finish
-        diagonal_vec2 = np.ones((n_cols*(n_rows-1), 1))  # Make the second diagonal vector (for vertical connections)
-    np.savetxt(GRAPH_ROBOT_PLANNING_PATH, adjacency.astype(int), fmt='%i')
+    elif connection_type == 2:  # 8-connected neighbors
+        diagonal_vec2 = np.vstack((np.zeros((1, 1)), diagonal_vec1[0:n_cols*(n_rows-1)])) # Anti-diagonal connections
+        diagonal_vec3 = np.ones((n_cols*(n_rows-1), 1))  # 3rd diagonal vector for vertical connections
+        diagonal_vec4 = diagonal_vec2[1:-1]  # 4th diagonal vector for diagonal connections
+        auxiliar_adj = np.diag(diagonal_vec1[:, 0], 1) + np.diag(diagonal_vec2[:, 0], n_cols-1) + \
+                       np.diag(diagonal_vec3[:, 0], n_cols) + np.diag(diagonal_vec4[:, 0], n_cols+1)
+    else:
+        raise ValueError('The value of {} is incorrect'.format(connection_type))
 
-    # TODO: Generate labels for nodes for plotting purposes
-    return Graph(GRAPH_ROBOT_PLANNING_PATH, None)
+    adjacency = auxiliar_adj + auxiliar_adj.T
+    np.savetxt(GRAPH_ROBOT_PLANNING_PATH, adjacency.astype(int), fmt='%i')
+    np.savetxt(GRAPH_ROBOT_PLAN_LABELS_PATH, nodes_labels.astype(int), fmt='%i')
+
+    return Graph(GRAPH_ROBOT_PLANNING_PATH, GRAPH_ROBOT_PLAN_LABELS_PATH)
 
 
 def load_karate_graph():

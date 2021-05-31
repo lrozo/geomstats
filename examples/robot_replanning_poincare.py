@@ -1,8 +1,14 @@
 """Learning embedding of graph using Poincare Ball Model."""
 
 import logging
+import numpy as np
+import matplotlib.cm as cm
 
 import matplotlib.pyplot as plt
+
+import pymanopt
+from pymanopt.manifolds import PoincareBall
+from pymanopt.solvers import ConjugateGradient, TrustRegions
 
 import geomstats.backend as gs
 import geomstats.visualization as visualization
@@ -126,18 +132,18 @@ def main():
     """
     gs.random.seed(1234)
     dim = 2
-    max_epochs = 100
-    lr = .05
+    max_epochs = 200
+    lr = .03
     n_negative = 2
     context_size = 1
-    karate_graph = load_robot_planning_graph(4, 4)
+    planning_graph = load_robot_planning_graph(4, 4)
 
     nb_vertices_by_edges =\
-        [len(e_2) for _, e_2 in karate_graph.edges.items()]
-    logging.info('Number of edges: %s', len(karate_graph.edges))
+        [len(e_2) for _, e_2 in planning_graph.edges.items()]
+    logging.info('Number of edges: %s', len(planning_graph.edges))
     logging.info(
         'Mean vertices by edges: %s',
-        (sum(nb_vertices_by_edges, 0) / len(karate_graph.edges)))
+        (sum(nb_vertices_by_edges, 0) / len(planning_graph.edges)))
 
     negative_table_parameter = 5
     negative_sampling_table = []
@@ -147,13 +153,13 @@ def main():
             ([i] * int((nb_v**(3. / 4.))) * negative_table_parameter)
 
     negative_sampling_table = gs.array(negative_sampling_table)
-    random_walks = karate_graph.random_walk()
-    embeddings = gs.random.normal(size=(karate_graph.n_nodes, dim))
+    random_walks = planning_graph.random_walk()
+    embeddings = gs.random.normal(size=(planning_graph.n_nodes, dim))
     embeddings = embeddings * 0.2
 
     hyperbolic_manifold = PoincareBall(2)
 
-    colors = {1: 'b', 2: 'r', 3: 'g'}
+    colors = cm.rainbow(np.linspace(0, 1, len(planning_graph.labels)))
     for epoch in range(max_epochs):
         total_loss = []
         for path in random_walks:
@@ -196,9 +202,10 @@ def main():
     circle.set_ax(ax)
     circle.draw(ax=ax)
     for i_embedding, embedding in enumerate(embeddings):
-        plt.scatter(
-            embedding[0], embedding[1],
-            c=colors[karate_graph.labels[i_embedding][0]])
+        plt.scatter(embedding[0], embedding[1], alpha=1.0, color=colors[planning_graph.labels[i_embedding][0]-1],
+                    label=i_embedding)
+        plt.annotate(i_embedding, (embedding[0], embedding[1]))
+    # plt.legend()
     plt.show()
 
 
