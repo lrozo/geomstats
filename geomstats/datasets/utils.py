@@ -91,7 +91,7 @@ def load_random_graph():
     """
     return Graph(GRAPH_RANDOM_PATH, GRAPH_RANDOM_LABELS_PATH)
 
-def load_robot_planning_graph(n_rows, n_cols, connection_type = 2):
+def load_robot_planning_graph(n_rows, n_cols, connection_type = 2, create_csv = True):
     """
 
     Returns
@@ -123,7 +123,31 @@ def load_robot_planning_graph(n_rows, n_cols, connection_type = 2):
     np.savetxt(GRAPH_ROBOT_PLANNING_PATH, adjacency.astype(int), fmt='%i')
     np.savetxt(GRAPH_ROBOT_PLAN_LABELS_PATH, nodes_labels.astype(int), fmt='%i')
 
+    if create_csv:
+        _create_csv_file_adjacency_matrix(adjacency, DATA_PATH)
+
     return Graph(GRAPH_ROBOT_PLANNING_PATH, GRAPH_ROBOT_PLAN_LABELS_PATH)
+
+
+def _create_csv_file_adjacency_matrix(adjacency, DATA_PATH):
+    CVS_ROBOT_PLANNING_PATH = os.path.join(DATA_PATH, 'graph_planning', 'robot_planning.csv')
+    n_rows, n_cols = adjacency.shape
+
+    csv_header = ['id1', 'id2', 'weight']
+    # open the file in the write mode
+    with open(CVS_ROBOT_PLANNING_PATH, 'w') as cvs_file:
+        # create the csv writer
+        writer = csv.writer(cvs_file, quoting=csv.QUOTE_NONE, delimiter=',')
+        writer.writerow(csv_header)
+
+        # Write nodes connections
+        row_data = []
+        for row in range(n_rows):
+            for col in range(n_cols):
+                if adjacency[row, col]:
+                    row_data.append([row.__str__(), col.__str__(), '1'])
+
+        writer.writerows(np.array(row_data))
 
 
 def load_karate_graph():
