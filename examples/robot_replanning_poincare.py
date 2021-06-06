@@ -16,6 +16,19 @@ from geomstats.datasets.utils import load_robot_planning_graph
 from geomstats.geometry.poincare_ball import PoincareBall
 
 
+def grid_embedding_init(grid_rows, grid_cols):
+    grid_limits = [-0.5, 0.5, -0.5, 0.5]
+    x_coord = np.linspace(grid_limits[0], grid_limits[1], grid_cols)
+    y_coord = np.linspace(grid_limits[3], grid_limits[2], grid_rows)
+    grid_embeddings = np.zeros((grid_rows * grid_cols, 2))
+    node = 0
+    for node_y in range(grid_cols):
+        for node_x in range(grid_rows):
+            grid_embeddings[node, :] = np.array([x_coord[node_x], y_coord[node_y]])
+            node += 1
+    return grid_embeddings
+
+
 def log_sigmoid(vector):
     """Logsigmoid function.
 
@@ -132,11 +145,13 @@ def main():
     """
     gs.random.seed(1234)
     dim = 2
-    max_epochs = 200
-    lr = .03
+    max_epochs = 250
+    lr = .02
     n_negative = 2
     context_size = 1
-    planning_graph = load_robot_planning_graph(4, 4)
+    initialization = 'Grid'
+    n_cols, n_rows = 7, 7
+    planning_graph = load_robot_planning_graph(n_rows, n_cols, connection_type=1)
 
     nb_vertices_by_edges =\
         [len(e_2) for _, e_2 in planning_graph.edges.items()]
@@ -153,13 +168,29 @@ def main():
             ([i] * int((nb_v**(3. / 4.))) * negative_table_parameter)
 
     negative_sampling_table = gs.array(negative_sampling_table)
-    random_walks = planning_graph.random_walk()
-    embeddings = gs.random.normal(size=(planning_graph.n_nodes, dim))
-    embeddings = embeddings * 0.2
+    random_walks = planning_graph.random_walk(walk_length=7)
+    if initialization == 'Random':
+        embeddings = gs.random.normal(size=(planning_graph.n_nodes, dim))
+        embeddings = embeddings * 0.2
+    elif initialization == 'Grid':
+        embeddings = grid_embedding_init(n_rows, n_cols)
 
     hyperbolic_manifold = PoincareBall(2)
 
     colors = cm.rainbow(np.linspace(0, 1, len(planning_graph.labels)))
+    circle = visualization.PoincareDisk(point_type='ball')
+    plt.figure(figsize=(10, 10))
+    ax = plt.subplot(111)
+    # circle.add_points(gs.array([[0, 0]]))
+    circle.set_ax(ax)
+    circle.draw(ax=ax)
+    for i_embedding, embedding in enumerate(embeddings):
+        plt.scatter(embedding[0], embedding[1], alpha=1.0, color=colors[planning_graph.labels[i_embedding][0] - 1],
+                    label=i_embedding)
+        plt.annotate(i_embedding + 1, (embedding[0], embedding[1]))
+    # plt.legend()
+    plt.show()
+
     for epoch in range(max_epochs):
         total_loss = []
         for path in random_walks:
@@ -168,11 +199,19 @@ def main():
                 context_index = path[max(0, example_index - context_size):
                                      min(example_index + context_size,
                                      len(path))]
-                negative_index =\
-                    gs.random.randint(negative_sampling_table.shape[0],
-                                      size=(len(context_index),
-                                      n_negative))
-                negative_index = negative_sampling_table[negative_index]
+                negative_index = []
+                for i in range(context_size):
+                    auxiliar_neg_table = negative_sampling_table[negative_sampling_table != context_index[i]]
+                    for j in planning_graph.edges[context_index[i]]:
+                        auxiliar_neg_table = auxiliar_neg_table[auxiliar_neg_table != j]
+                    aux_negative_index = gs.random.randint(auxiliar_neg_table.shape[0], size=(1, n_negative))
+                    negative_index.append(auxiliar_neg_table[aux_negative_index])
+                negative_index = np.array(negative_index).squeeze()
+                # negative_index =\
+                #     gs.random.randint(negative_sampling_table.shape[0],
+                #                       size=(len(context_index),
+                #                       n_negative))
+                # negative_index = negative_sampling_table[negative_index]
 
                 example_embedding = embeddings[one_path]
 
@@ -196,7 +235,7 @@ def main():
             epoch, sum(total_loss, 0) / len(total_loss))
 
     circle = visualization.PoincareDisk(point_type='ball')
-    plt.figure()
+    plt.figure(figsize=(10, 10))
     ax = plt.subplot(111)
     circle.add_points(gs.array([[0, 0]]))
     circle.set_ax(ax)
@@ -204,7 +243,7 @@ def main():
     for i_embedding, embedding in enumerate(embeddings):
         plt.scatter(embedding[0], embedding[1], alpha=1.0, color=colors[planning_graph.labels[i_embedding][0]-1],
                     label=i_embedding)
-        plt.annotate(i_embedding, (embedding[0], embedding[1]))
+        plt.annotate(i_embedding+1, (embedding[0], embedding[1]))
     # plt.legend()
     plt.show()
 
