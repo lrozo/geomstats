@@ -3,17 +3,19 @@
 import math
 import warnings
 
+import tests.helper as helper
 from scipy.stats import dirichlet
 
 import geomstats.backend as gs
 import geomstats.tests
-from geomstats.geometry.dirichlet_distributions import DirichletDistributions
-from geomstats.geometry.dirichlet_distributions import DirichletMetric
 from geomstats.geometry.symmetric_matrices import SymmetricMatrices
+from geomstats.information_geometry.dirichlet import DirichletDistributions
+from geomstats.information_geometry.dirichlet import DirichletMetric
 
 
 class TestDirichletDistributions(geomstats.tests.TestCase):
-    """Class defining the Dirichlet distributions tests."""
+    """Class defining the Dirichlet distributions tests.
+    """
     def setUp(self):
         """Define the parameters of the tests."""
         gs.random.seed(0)
@@ -398,3 +400,13 @@ class TestDirichletDistributions(geomstats.tests.TestCase):
             point_a, point_b, max_time=max_time)
         expected = math.nan
         self.assertAllClose(expected, result)
+
+    def test_projection_and_belongs(self):
+        """Test projection and belongs.
+
+        Check that result of projection belongs to the space of
+        Dirichlet distributions."""
+        shape = (self.n_samples, self.dim)
+        result = helper.test_projection_and_belongs(self.dirichlet, shape)
+        for res in result:
+            self.assertTrue(res)

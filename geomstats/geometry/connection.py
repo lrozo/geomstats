@@ -1,5 +1,7 @@
 """Affine connections."""
 
+from abc import ABC
+
 from scipy.optimize import minimize
 
 import geomstats.backend as gs
@@ -11,7 +13,7 @@ from geomstats.integrator import integrate
 N_STEPS = 10
 
 
-class Connection:
+class Connection(ABC):
     r"""Class for affine connections.
 
     Parameters
@@ -53,24 +55,6 @@ class Connection:
         """
         raise NotImplementedError(
             'The Christoffel symbols are not implemented.')
-
-    def connection(self, tangent_vec_a, tangent_vec_b, base_point):
-        """Covariant derivative.
-
-        Connection applied to `tangent_vector_b` in the direction of
-        `tangent_vector_a`, both tangent at `base_point`.
-
-        Parameters
-        ----------
-        tangent_vec_a : array-like, shape=[..., dim]
-            Tangent vector at base point.
-        tangent_vec_b : array-like, shape=[..., dim]
-            Tangent vector at base point.
-        base_point : array-like, shape=[..., dim]
-            Point on the manifold.
-        """
-        raise NotImplementedError(
-            'connection is not implemented.')
 
     def geodesic_equation(self, state, _time):
         """Compute the geodesic ODE associated with the connection.
@@ -373,14 +357,16 @@ class Connection:
 
         References
         ----------
-        .. [LP2013b] Marco Lorenzi, Xavier Pennec. Efficient Parallel Transpor
-          of Deformations in Time Series of Images: from Schild's to
-          Pole Ladder.Journal of Mathematical Imaging and Vision, Springer
-          Verlag, 2013, 50 (1-2), pp.5-17. ⟨10.1007/s10851-013-0470-3⟩
+        .. [LP2013b] Lorenzi, Marco, and Xavier Pennec. “Efficient Parallel
+        Transport of Deformations in Time Series of Images: From Schild to
+        Pole Ladder.” Journal of Mathematical Imaging and Vision 50, no. 1
+        (September 1, 2014): 5–17. https://doi.org/10.1007/s10851-013-0470-3.
 
-        .. [GP2020] Nicolas Guigui, Xavier Pennec. Numerical Accuracy of
-          Ladder Schemes for Parallel Transport on Manifolds. 2020.
-          ⟨hal-02894783⟩
+
+        .. [GP2020] Guigui, Nicolas, and Xavier Pennec. “Numerical Accuracy
+        of Ladder Schemes for Parallel Transport on Manifolds.”
+        Foundations of Computational Mathematics, June 18, 2021.
+        https://doi.org/10.1007/s10208-021-09515-x.
         """
         geomstats.errors.check_integer(n_rungs, 'n_rungs')
         if alpha < 1:
@@ -413,25 +399,14 @@ class Connection:
                 'end_point': current_point,
                 'trajectory': trajectory}
 
-    def riemannian_curvature_tensor(self, base_point):
-        """Compute Riemannian curvature tensor associated with the connection.
-
-        Parameters
-        ----------
-        base_point: array-like, shape=[..., dim]
-            Point on the manifold.
-        """
-        raise NotImplementedError(
-            'The Riemannian curvature tensor is not implemented.')
-
     def curvature(
             self, tangent_vec_a, tangent_vec_b, tangent_vec_c,
             base_point):
         r"""Compute the curvature.
 
-        For three tangent vectors at a base point :math: `X,Y,Z`,
+        For three tangent vectors at a base point :math:`X,Y,Z`,
         the curvature is defined by
-        :math: `R(X, Y)Z = \nabla_{[X,Y]}Z
+        :math:`R(X, Y)Z = \nabla_{[X,Y]}Z
         - \nabla_X\nabla_Y Z + \nabla_Y\nabla_X Z`.
 
         Parameters
@@ -456,9 +431,9 @@ class Connection:
             self, tangent_vec_a, tangent_vec_b, base_point):
         """Compute the directional curvature (tidal force operator).
 
-        For two tangent vectors at a base point :math: `X,Y`, the directional
+        For two tangent vectors at a base point :math:`X,Y`, the directional
         curvature, better known in relativity as the tidal force operator,
-        is defined by :math: `R_X(Y) = R(X,Y)X`.
+        is defined by :math:`R_X(Y) = R(X,Y)X`.
 
         Parameters
         ----------
@@ -502,8 +477,8 @@ class Connection:
         path : callable
             Time parameterized geodesic curve. If a batch of initial
             conditions is passed, the output array's first dimension
-            represents time, and the second corresponds to the different
-            initial conditions.
+            represents the different initial conditions, and the second
+            corresponds to time.
         """
         point_type = self.default_point_type
 
@@ -531,6 +506,10 @@ class Connection:
                 initial_tangent_vec, to_ndim=3)
         n_initial_conditions = initial_tangent_vec.shape[0]
 
+        if n_initial_conditions > 1 and len(initial_point) == 1:
+            initial_point = gs.stack(
+                [initial_point[0]] * n_initial_conditions)
+
         def path(t):
             """Generate parameterized function for geodesic curve.
 
@@ -539,7 +518,8 @@ class Connection:
             t : array-like, shape=[n_points,]
                 Times at which to compute points of the geodesics.
             """
-            t = gs.array(t, gs.float32)
+            t = gs.array(t)
+            t = gs.cast(t, initial_tangent_vec.dtype)
             t = gs.to_ndarray(t, to_ndim=1)
             if point_type == 'vector':
                 tangent_vecs = gs.einsum(
@@ -551,43 +531,32 @@ class Connection:
             points_at_time_t = [
                 self.exp(tv, pt) for tv,
                 pt in zip(tangent_vecs, initial_point)]
-            points_at_time_t = gs.stack(points_at_time_t, axis=1)
+            points_at_time_t = gs.stack(points_at_time_t, axis=0)
 
-            return points_at_time_t[:, 0] if n_initial_conditions == 1 else \
+            return points_at_time_t[0] if n_initial_conditions == 1 else \
                 points_at_time_t
         return path
-
-    def torsion(self, base_point):
-        """Compute torsion tensor associated with the connection.
-
-        Parameters
-        ----------
-        base_point: array-like, shape=[..., dim]
-            Point on the manifold.
-        """
-        raise NotImplementedError(
-            'The torsion tensor is not implemented.')
 
     def parallel_transport(self, tangent_vec_a, tangent_vec_b, base_point):
         r"""Compute the parallel transport of a tangent vector.
 
         Closed-form solution for the parallel transport of a tangent vector a
-        along the geodesic defined by :math: `t \mapsto exp_(base_point)(t*
+        along the geodesic defined by :math:`t \mapsto exp_(base_point)(t*
         tangent_vec_b)`.
 
         Parameters
         ----------
-        tangent_vec_a : array-like, shape=[..., dim + 1]
+        tangent_vec_a : array-like, shape=[..., {dim, [n, n]}]
             Tangent vector at base point to be transported.
-        tangent_vec_b : array-like, shape=[..., dim + 1]
+        tangent_vec_b : array-like, shape=[..., {dim, [n, n]}]
             Tangent vector at base point, along which the parallel transport
             is computed.
-        base_point : array-like, shape=[..., dim + 1]
-            Point on the hypersphere.
+        base_point : array-like, shape=[..., {dim, [n, n]}]
+            Point on the manifold.
 
         Returns
         -------
-        transported_tangent_vec: array-like, shape=[..., dim + 1]
+        transported_tangent_vec: array-like, shape=[..., {dim, [n, n]}]
             Transported tangent vector at `exp_(base_point)(tangent_vec_b)`.
         """
         raise NotImplementedError(
