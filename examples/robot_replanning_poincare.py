@@ -150,7 +150,7 @@ def main():
     n_negative = 2
     context_size = 1
     initialization = 'Grid'
-    n_cols, n_rows = 7, 7
+    n_cols, n_rows = 9, 9
     planning_graph = load_robot_planning_graph(n_rows, n_cols, connection_type=1)
 
     nb_vertices_by_edges =\
